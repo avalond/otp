@@ -50,8 +50,12 @@
 #include <openssl/ripemd.h>
 #include <openssl/bn.h>
 #include <openssl/objects.h>
-#include <openssl/rc4.h>
-#include <openssl/rc2.h>
+#ifndef OPENSSL_NO_RC4
+    #include <openssl/rc4.h>
+#endif /* OPENSSL_NO_RC4 */
+#ifndef OPENSSL_NO_RC2
+    #include <openssl/rc2.h>
+#endif
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
 #include <openssl/evp.h>
@@ -468,7 +472,13 @@ struct cipher_type_t {
 
 struct cipher_type_t cipher_types[] =
 {
-    {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+    {{"rc2_cbc"},
+#ifndef OPENSSL_NO_RC2
+     {&EVP_rc2_cbc}
+#else
+     {NULL}
+#endif
+    },
     {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
@@ -578,7 +588,7 @@ static void error_handler(void* null, const char* errstr)
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
-static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
+static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
 #ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
@@ -593,7 +603,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     char lib_buf[1000];
 
     if (!verify_lib_version())
-	return 0;
+	return __LINE__;
 
     /* load_info: {301, <<"/full/path/of/this/library">>} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
@@ -603,7 +613,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-	return 0;
+	return __LINE__;
     }
 
     hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
@@ -612,7 +622,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 						 NULL);
     if (!hmac_context_rtype) {
 	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
-	return 0;
+	return __LINE__;
     }
 #if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
@@ -621,7 +631,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
                                                NULL);
     if (!evp_md_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
 #ifdef HAVE_EVP_AES_CTR
@@ -631,14 +641,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
                                                    NULL);
     if (!evp_cipher_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
 	 */
-	return 1;
+	return 0;
     }
 
     atom_true  = enif_make_atom(env,"true");
@@ -684,14 +694,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     {
 	void* handle;
 	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
 							   &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
     }
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
@@ -710,7 +720,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
-	return 0;
+	return __LINE__;
     }
     
     CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
@@ -724,13 +734,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
-    return 1;
+    return 0;
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    if (!init(env, load_info)) {
-	return -1;
+    int errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
 
     *priv_data = NULL;
@@ -741,14 +752,16 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 		   ERL_NIF_TERM load_info)
 {
+    int errline;
     if (*old_priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
     if (*priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
-    if (!init(env, load_info)) {
-	return -1;
+    errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
     library_refc++;
     return 0;
@@ -827,8 +840,12 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
+#ifndef OPENSSL_NO_RC2
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
+#endif
+#ifndef OPENSSL_NO_RC4
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
+#endif
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
 #endif
@@ -2327,6 +2344,7 @@ static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, Data) */
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary key, data;
     RC4_KEY rc4_key;
     ERL_NIF_TERM ret;
@@ -2340,10 +2358,14 @@ static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	enif_make_new_binary(env, data.size, &ret));
     CONSUME_REDS(env,data);
     return ret;
-}   
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key) */
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary key;
     ERL_NIF_TERM ret;
 
@@ -2353,11 +2375,14 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     RC4_set_key((RC4_KEY*)enif_make_new_binary(env, sizeof(RC4_KEY), &ret),
 		key.size, key.data);        
     return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
 }
 
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (State, Data) */
-
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary state, data;
     RC4_KEY* rc4_key;
     ERL_NIF_TERM new_state, new_data;
@@ -2373,7 +2398,10 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
 	enif_make_new_binary(env, data.size, &new_data));
     CONSUME_REDS(env,data);
     return enif_make_tuple2(env,new_state,new_data);
-}   
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {

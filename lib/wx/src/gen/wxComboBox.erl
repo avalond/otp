@@ -42,14 +42,14 @@
   centre/1,centre/2,centreOnParent/1,centreOnParent/2,clear/1,clearBackground/1,
   clientToScreen/2,clientToScreen/3,close/1,close/2,connect/2,connect/3,
   convertDialogToPixels/2,convertPixelsToDialog/2,delete/2,destroyChildren/1,
-  disable/1,disconnect/1,disconnect/2,disconnect/3,enable/1,enable/2,
-  findString/2,findString/3,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
-  getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCaret/1,
-  getCharHeight/1,getCharWidth/1,getChildren/1,getClientData/2,getClientSize/1,
-  getContainingSizer/1,getCount/1,getCursor/1,getDropTarget/1,getEventHandler/1,
-  getExtraStyle/1,getFont/1,getForegroundColour/1,getGrandParent/1,
-  getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,getMinSize/1,
-  getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
+  disable/1,disconnect/1,disconnect/2,disconnect/3,dragAcceptFiles/2,
+  enable/1,enable/2,findString/2,findString/3,findWindow/2,fit/1,fitInside/1,
+  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
+  getClientData/2,getClientSize/1,getContainingSizer/1,getCount/1,getCursor/1,
+  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
+  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
+  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
   getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
   getSelection/1,getSize/1,getSizer/1,getString/2,getStringSelection/1,
   getTextExtent/2,getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,
@@ -130,7 +130,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
- when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Value,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcreate">external documentation</a>.
@@ -139,7 +139,7 @@ create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 	Option :: {'style', integer()}
 		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,{PosX,PosY},{SizeW,SizeH},Choices, Options)
- when is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
+ when is_integer(Id),?is_chardata(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxComboBox),
   ?CLASS(ParentT,wxWindow),
   Value_UC = unicode:characters_to_binary([Value,0]),
@@ -252,7 +252,7 @@ redo(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec replace(This, From, To, Value) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
- when is_integer(From),is_integer(To),is_list(Value) ->
+ when is_integer(From),is_integer(To),?is_chardata(Value) ->
   ?CLASS(ThisT,wxComboBox),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxComboBox_Replace,
@@ -306,7 +306,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
 -spec setValue(This, Value) -> 'ok' when
 	This::wxComboBox(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
- when is_list(Value) ->
+ when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxComboBox),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxComboBox_SetValue,
@@ -687,6 +687,8 @@ findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
 enable(This) -> wxWindow:enable(This).
+%% @hidden
+dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
 disable(This) -> wxWindow:disable(This).
 %% @hidden

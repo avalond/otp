@@ -78,6 +78,10 @@
 
 ;; Variables:
 
+(defgroup erlang nil
+  "The Erlang programming language."
+  :group 'languages)
+
 (defconst erlang-version "2.7"
   "The version number of Erlang mode.")
 
@@ -1512,8 +1516,6 @@ Other commands:
   (setq paragraph-separate paragraph-start)
   (make-local-variable 'paragraph-ignore-fill-prefix)
   (setq paragraph-ignore-fill-prefix t)
-  (make-local-variable 'require-final-newline)
-  (setq require-final-newline t)
   (make-local-variable 'defun-prompt-regexp)
   (setq defun-prompt-regexp erlang-defun-prompt-regexp)
   (make-local-variable 'comment-start)
@@ -2446,6 +2448,7 @@ Return the amount the indentation changed by."
     ;; after the indentation. Else stay at same point in text.
     (if (> (- (point-max) pos) (point))
 	(goto-char (- (point-max) pos)))
+    (run-hooks 'erlang-indent-line-hook)
     shift-amt))
 
 
